@@ -5,6 +5,7 @@
 import argparse
 import yaml
 import os
+import re
 import sys
 
 
@@ -23,7 +24,9 @@ def is_supported(package, arch):
     package: dict having at least a 'name' key, optionally 'exclude_on' (list) and 'include_on' (str)
     arch: str representing an architecture name
     """
-    return not arch in package.get('exclude_on', []) \
+    print(package, arch)
+    return package is None \
+        or not arch in package.get('exclude_on', []) \
         and arch in package.get('include_on', [arch])
 
 
@@ -61,6 +64,24 @@ def parse_yaml_file(filename):
     return (archs, sets)
 
 
+def make_atom(package_name, package_dict):
+    """
+    Generate a package atom that is compatible with ebuild/emerge, see:
+    https://dev.gentoo.org/~zmedico/portage/doc/man/ebuild.5.html
+    """
+    atom = package_name
+    if not package_dict:
+        package_dict = {}
+
+    if 'version' in package_dict:
+        atom = '=' + atom + '-' + str(package_dict['version'])
+
+    if 'overlay' in package_dict:
+        atom += '::' + package_dict['overlay']
+
+    return atom + '\n'
+
+
 def main():
     """
     Main function.
@@ -72,10 +93,14 @@ def main():
         error(f"output directory {args.setsdir} does not exist.")
 
     # Create a set file with the supported packages for every listed architecture and set definition
-    for set in sets:
+    for set_name, set in sets.items():
         for arch in archs:
-            supported_packages = [package['name'] + '\n' for package in set['packages'] if is_supported(package, arch)]
-            set_filename = os.path.join(args.setsdir, f"{set['name']}-{arch}")
+            supported_packages = [
+                make_atom(package_name, package_dict)
+                for package_name, package_dict in set['packages'].items()
+                if is_supported(package_dict, arch)
+            ]
+            set_filename = os.path.join(args.setsdir, f"{set_name}-{arch}")
             with open(set_filename, 'w') as setfile:
                 setfile.writelines(supported_packages)
             print(f"Created set file {set_filename}.")
