@@ -5,7 +5,6 @@
 import argparse
 import yaml
 import os
-import re
 import sys
 
 
@@ -70,6 +69,7 @@ def make_atom(package_name, package_dict):
     https://dev.gentoo.org/~zmedico/portage/doc/man/ebuild.5.html
     """
     atom = package_name
+
     if not package_dict:
         package_dict = {}
 
